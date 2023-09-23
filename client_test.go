@@ -93,21 +93,20 @@ func TestClientPost(t *testing.T) {
 	defer gock.Off()
 	client := testClient()
 
-	var err error
-
 	// Success
-	gock.New(testURL).Post("/url").Reply(200)
-	_, err = client.Post("/url", "{}")
+	gock.New(testURL).Post("/url").Reply(200).Header.Add("Location", "abc")
+	_, loc, err := client.Post("/url", "{}")
 	assert.NoError(t, err)
+	assert.Equal(t, loc, "abc")
 
 	// HTTP error
 	gock.New(testURL).Post("/url").ReplyError(errors.New("fail"))
-	_, err = client.Post("/url", "{}")
+	_, _, err = client.Post("/url", "{}")
 	assert.Error(t, err)
 
 	// Invalid HTTP status code
 	gock.New(testURL).Post("/url").Reply(405)
-	_, err = client.Post("/url", "{}")
+	_, _, err = client.Post("/url", "{}")
 	assert.Error(t, err)
 
 	// Error decoding response body
@@ -118,7 +117,7 @@ func TestClientPost(t *testing.T) {
 			res.Body = io.NopCloser(ErrReader{})
 			return res
 		})
-	_, err = client.Post("/url", "{}")
+	_, _, err = client.Post("/url", "{}")
 	assert.Error(t, err)
 }
 

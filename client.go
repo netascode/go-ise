@@ -138,8 +138,8 @@ func (client Client) NewReq(method, uri string, body io.Reader, mods ...func(*Re
 // Requests for Do are built ouside of the client, e.g.
 //
 //	req := client.NewReq("GET", "/ers/config/internaluser", nil)
-//	res, _ := client.Do(req)
-func (client *Client) Do(req Req) (Res, error) {
+//	res, _, _ := client.Do(req)
+func (client *Client) Do(req Req) (Res, string, error) {
 	// retain the request body across multiple attempts
 	var body []byte
 	if req.HttpReq.Body != nil {
@@ -147,6 +147,8 @@ func (client *Client) Do(req Req) (Res, error) {
 	}
 
 	var res Res
+	var httpRes *http.Response
+	var err error
 
 	for attempts := 0; ; attempts++ {
 		req.HttpReq.Body = io.NopCloser(bytes.NewBuffer(body))
@@ -156,12 +158,12 @@ func (client *Client) Do(req Req) (Res, error) {
 			log.Printf("[DEBUG] HTTP Request: %s, %s", req.HttpReq.Method, req.HttpReq.URL)
 		}
 
-		httpRes, err := client.HttpClient.Do(req.HttpReq)
+		httpRes, err = client.HttpClient.Do(req.HttpReq)
 		if err != nil {
 			if ok := client.Backoff(attempts); !ok {
 				log.Printf("[ERROR] HTTP Connection error occured: %+v", err)
 				log.Printf("[DEBUG] Exit from Do method")
-				return Res{}, err
+				return Res{}, "", err
 			} else {
 				log.Printf("[ERROR] HTTP Connection failed: %s, retries: %v", err, attempts)
 				continue
@@ -174,7 +176,7 @@ func (client *Client) Do(req Req) (Res, error) {
 			if ok := client.Backoff(attempts); !ok {
 				log.Printf("[ERROR] Cannot decode response body: %+v", err)
 				log.Printf("[DEBUG] Exit from Do method")
-				return Res{}, err
+				return Res{}, "", err
 			} else {
 				log.Printf("[ERROR] Cannot decode response body: %s, retries: %v", err, attempts)
 				continue
@@ -193,37 +195,41 @@ func (client *Client) Do(req Req) (Res, error) {
 			if ok := client.Backoff(attempts); !ok {
 				log.Printf("[ERROR] HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
 				log.Printf("[DEBUG] Exit from Do method")
-				return res, fmt.Errorf("HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
+				return res, "", fmt.Errorf("HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
 			} else if httpRes.StatusCode == 408 || (httpRes.StatusCode >= 502 && httpRes.StatusCode <= 504) {
 				log.Printf("[ERROR] HTTP Request failed: StatusCode %v, Message: %v, Retries: %v", httpRes.StatusCode, errMessage, attempts)
 				continue
 			} else {
 				log.Printf("[ERROR] HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
 				log.Printf("[DEBUG] Exit from Do method")
-				return res, fmt.Errorf("HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
+				return res, "", fmt.Errorf("HTTP Request failed: StatusCode %v, Message: %v", httpRes.StatusCode, errMessage)
 			}
 		}
 	}
-
-	return res, nil
+	if v, ok := httpRes.Header["Location"]; ok {
+		return res, v[0], nil
+	}
+	return res, "", nil
 }
 
 // Get makes a GET request and returns a GJSON result.
 // Results will be the raw data structure as returned by vManage
 func (client *Client) Get(path string, mods ...func(*Req)) (Res, error) {
 	req := client.NewReq("GET", path, nil, mods...)
-	return client.Do(req)
+	r, _, err := client.Do(req)
+	return r, err
 }
 
 // Delete makes a DELETE request.
 func (client *Client) Delete(path string, mods ...func(*Req)) (Res, error) {
 	req := client.NewReq("DELETE", path, nil, mods...)
-	return client.Do(req)
+	r, _, err := client.Do(req)
+	return r, err
 }
 
-// Post makes a POST request and returns a GJSON result.
+// Post makes a POST request and returns a GJSON result and the location.
 // Hint: Use the Body struct to easily create POST body data.
-func (client *Client) Post(path, data string, mods ...func(*Req)) (Res, error) {
+func (client *Client) Post(path, data string, mods ...func(*Req)) (Res, string, error) {
 	req := client.NewReq("POST", path, strings.NewReader(data), mods...)
 	return client.Do(req)
 }
@@ -232,7 +238,8 @@ func (client *Client) Post(path, data string, mods ...func(*Req)) (Res, error) {
 // Hint: Use the Body struct to easily create PUT body data.
 func (client *Client) Put(path, data string, mods ...func(*Req)) (Res, error) {
 	req := client.NewReq("PUT", path, strings.NewReader(data), mods...)
-	return client.Do(req)
+	r, _, err := client.Do(req)
+	return r, err
 }
 
 // Backoff waits following an exponential backoff algorithm
