@@ -213,7 +213,7 @@ func (client *Client) Do(req Req) (Res, string, error) {
 }
 
 // Get makes a GET request and returns a GJSON result.
-// Results will be the raw data structure as returned by vManage
+// Results will be the raw data structure as returned by ISE
 func (client *Client) Get(path string, mods ...func(*Req)) (Res, error) {
 	req := client.NewReq("GET", path, nil, mods...)
 	r, _, err := client.Do(req)
