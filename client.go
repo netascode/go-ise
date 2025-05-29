@@ -59,6 +59,9 @@ func NewClient(url, usr, pwd string, mods ...func(*Client)) (Client, error) {
 		Transport: tr,
 	}
 
+	// Remove trailing slash from base URL to prevent double slashes in the final request URL
+	url = strings.TrimSuffix(url, "/")
+
 	client := Client{
 		HttpClient:         &httpClient,
 		Url:                url,
@@ -120,8 +123,6 @@ func BackoffDelayFactor(x float64) func(*Client) {
 
 // NewReq creates a new Req request for this client.
 func (client Client) NewReq(method, uri string, body io.Reader, mods ...func(*Req)) Req {
-	// Remove trailing slash from base URL to prevent double slashes in the final request URL
-	client.Url = strings.TrimSuffix(client.Url, "/")
 	httpReq, _ := http.NewRequest(method, client.Url+uri, body)
 	httpReq.SetBasicAuth(client.Usr, client.Pwd)
 	httpReq.Header.Set("Accept", "application/json")
