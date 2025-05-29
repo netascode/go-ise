@@ -120,7 +120,7 @@ func BackoffDelayFactor(x float64) func(*Client) {
 
 // NewReq creates a new Req request for this client.
 func (client Client) NewReq(method, uri string, body io.Reader, mods ...func(*Req)) Req {
-	// Ensure the URL does not end with a trailing slash
+	// Remove trailing slash from base URL to prevent double slashes in the final request URL
 	client.Url = strings.TrimSuffix(client.Url, "/")
 	httpReq, _ := http.NewRequest(method, client.Url+uri, body)
 	httpReq.SetBasicAuth(client.Usr, client.Pwd)
