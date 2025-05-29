@@ -59,6 +59,9 @@ func NewClient(url, usr, pwd string, mods ...func(*Client)) (Client, error) {
 		Transport: tr,
 	}
 
+	// Remove trailing slash from base URL to prevent double slashes in the final request URL
+	url = strings.TrimSuffix(url, "/")
+
 	client := Client{
 		HttpClient:         &httpClient,
 		Url:                url,
