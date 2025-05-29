@@ -1,4 +1,4 @@
-## 0.1.2 (unreleased)
+## 0.1.2
 
 - Remove trailing slash from base URL to prevent double slashes in the final request URL
 
