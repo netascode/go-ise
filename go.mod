@@ -1,6 +1,6 @@
 module github.com/netascode/go-ise
 
-go 1.20
+go 1.23.6
 
 require (
 	github.com/stretchr/testify v1.10.0
